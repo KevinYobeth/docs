@@ -18,6 +18,7 @@
     - [Named Error Bags](#named-error-bags)
     - [Customizing The Error Messages](#manual-customizing-the-error-messages)
     - [After Validation Hook](#after-validation-hook)
+- [Working With Validated Input](#working-with-validated-input)
 - [Working With Error Messages](#working-with-error-messages)
     - [Specifying Custom Messages In Language Files](#specifying-custom-messages-in-language-files)
     - [Specifying Attributes In Language Files](#specifying-attribute-in-language-files)
@@ -25,6 +26,8 @@
 - [Available Validation Rules](#available-validation-rules)
 - [Conditionally Adding Rules](#conditionally-adding-rules)
 - [Validating Arrays](#validating-arrays)
+    - [Excluding Unvalidated Array Keys](#excluding-unvalidated-array-keys)
+    - [Validating Nested Array Input](#validating-nested-array-input)
 - [Validating Passwords](#validating-passwords)
 - [Custom Validation Rules](#custom-validation-rules)
     - [Using Rule Objects](#using-rule-objects)
@@ -94,7 +97,7 @@ Next, let's take a look at a simple controller that handles incoming requests to
 <a name="quick-writing-the-validation-logic"></a>
 ### Writing The Validation Logic
 
-Now we are ready to fill in our `store` method with the logic to validate the new blog post. To do this, we will use the `validate` method provided by the `Illuminate\Http\Request` object. If the validation rules pass, your code will keep executing normally; however, if validation fails, an exception will be thrown and the proper error response will automatically be sent back to the user.
+Now we are ready to fill in our `store` method with the logic to validate the new blog post. To do this, we will use the `validate` method provided by the `Illuminate\Http\Request` object. If the validation rules pass, your code will keep executing normally; however, if validation fails, an `Illuminate\Validation\ValidationException` exception will be thrown and the proper error response will automatically be sent back to the user.
 
 If validation fails during a traditional HTTP request, a redirect response to the previous URL will be generated. If the incoming request is an XHR request, a JSON response containing the validation error messages will be returned.
 
@@ -211,11 +214,17 @@ You may use the `@error` [Blade](/docs/{{version}}/blade) directive to quickly d
 
 <label for="title">Post Title</label>
 
-<input id="title" type="text" class="@error('title') is-invalid @enderror">
+<input id="title" type="text" name="title" class="@error('title') is-invalid @enderror">
 
 @error('title')
     <div class="alert alert-danger">{{ $message }}</div>
 @enderror
+```
+
+If you are using [named error bags](#named-error-bags), you may pass the name of the error bag as the second argument to the `@error` directive:
+
+```html
+<input ... class="@error('title', 'post') is-invalid @enderror">
 ```
 
 <a name="repopulating-forms"></a>
@@ -287,6 +296,10 @@ So, how are the validation rules evaluated? All you need to do is type-hint the 
 
         // Retrieve the validated input data...
         $validated = $request->validated();
+
+        // Retrieve a portion of the validated input data...
+        $validated = $request->safe()->only(['name', 'email']);
+        $validated = $request->safe()->except(['name', 'email']);
     }
 
 If validation fails, a redirect response will be generated to send the user back to their previous location. The errors will also be flashed to the session so they are available for display. If the request was an XHR request, an HTTP response with a 422 status code will be returned to the user including a JSON representation of the validation errors.
@@ -323,6 +336,27 @@ By adding a `stopOnFirstFailure` property to your request class, you may inform 
      * @var bool
      */
     protected $stopOnFirstFailure = true;
+
+<a name="customizing-the-redirect-location"></a>
+#### Customizing The Redirect Location
+
+As previously discussed, a redirect response will be generated to send the user back to their previous location when form request validation fails. However, you are free to customize this behavior. To do so, define a `$redirect` property on your form request:
+
+    /**
+     * The URI that users should be redirected to if validation fails.
+     *
+     * @var string
+     */
+    protected $redirect = '/dashboard';
+
+Or, if you would like to redirect users to a named route, you may define a `$redirectRoute` property instead:
+
+    /**
+     * The route that users should be redirected to if validation fails.
+     *
+     * @var string
+     */
+    protected $redirectRoute = 'dashboard';
 
 <a name="authorizing-form-requests"></a>
 ### Authorizing Form Requests
@@ -455,6 +489,13 @@ If you do not want to use the `validate` method on the request, you may create a
                             ->withInput();
             }
 
+            // Retrieve the validated input...
+            $validated = $validator->validated();
+
+            // Retrieve a portion of the validated input...
+            $validated = $validator->safe()->only(['name', 'email']);
+            $validated = $validator->safe()->except(['name', 'email']);
+
             // Store the blog post...
         }
     }
@@ -553,6 +594,43 @@ You may also attach callbacks to be run after validation is completed. This allo
     if ($validator->fails()) {
         //
     }
+
+<a name="working-with-validated-input"></a>
+## Working With Validated Input
+
+After validating incoming request data using a form request or a manually created validator instance, you may wish to retrieve the incoming request data that actually underwent validation. This can be accomplished in several ways. First, you may call the `validated` method on a form request or validator instance. This method returns an array of the data that was validated:
+
+    $validated = $request->validated();
+
+    $validated = $validator->validated();
+
+Alternatively, you may call the `safe` method on a form request or validator instance. This method returns an instance of `Illuminate\Support\ValidatedInput`. This object exposes `only`, `except`, and `all` methods to retrieve a subset of the validated data or the entire array of validated data:
+
+    $validated = $request->safe()->only(['name', 'email']);
+
+    $validated = $request->safe()->except(['name', 'email']);
+
+    $validated = $request->safe()->all();
+
+In addition, the `Illuminate\Support\ValidatedInput` instance may be iterated over and accessed like an array:
+
+    // Validated data may be iterated...
+    foreach ($request->safe() as $key => $value) {
+        //
+    }
+
+    // Validated data may be accessed as an array...
+    $validated = $request->safe();
+
+    $email = $validated['email'];
+
+If you would like to add additional fields to the validated data, you may call the `merge` method:
+
+    $validated = $request->safe()->merge(['name' => 'Taylor Otwell']);
+
+If you would like to retrieve the validated data as a [collection](/docs/{{version}}/collections) instance, you may call the `collect` method:
+
+    $collection = $request->safe()->collect();
 
 <a name="working-with-error-messages"></a>
 ## Working With Error Messages
@@ -673,6 +751,7 @@ Below is a list of all available validation rules and their function:
 <div class="collection-method-list" markdown="1">
 
 [Accepted](#rule-accepted)
+[Accepted If](#rule-accepted-if)
 [Active URL](#rule-active-url)
 [After (Date)](#rule-after)
 [After Or Equal (Date)](#rule-after-or-equal)
@@ -686,6 +765,7 @@ Below is a list of all available validation rules and their function:
 [Between](#rule-between)
 [Boolean](#rule-boolean)
 [Confirmed](#rule-confirmed)
+[Current Password](#rule-current-password)
 [Date](#rule-date)
 [Date Equals](#rule-date-equals)
 [Date Format](#rule-date-format)
@@ -696,8 +776,10 @@ Below is a list of all available validation rules and their function:
 [Distinct](#rule-distinct)
 [Email](#rule-email)
 [Ends With](#rule-ends-with)
+[Exclude](#rule-exclude)
 [Exclude If](#rule-exclude-if)
 [Exclude Unless](#rule-exclude-unless)
+[Exclude Without](#rule-exclude-without)
 [Exists (Database)](#rule-exists)
 [File](#rule-file)
 [Filled](#rule-filled)
@@ -725,6 +807,7 @@ Below is a list of all available validation rules and their function:
 [Prohibited](#rule-prohibited)
 [Prohibited If](#rule-prohibited-if)
 [Prohibited Unless](#rule-prohibited-unless)
+[Prohibits](#rule-prohibits)
 [Regular Expression](#rule-regex)
 [Required](#rule-required)
 [Required If](#rule-required-if)
@@ -735,7 +818,7 @@ Below is a list of all available validation rules and their function:
 [Required Without All](#rule-required-without-all)
 [Same](#rule-same)
 [Size](#rule-size)
-[Sometimes](#conditionally-adding-rules)
+[Sometimes](#validating-when-present)
 [Starts With](#rule-starts-with)
 [String](#rule-string)
 [Timezone](#rule-timezone)
@@ -749,6 +832,11 @@ Below is a list of all available validation rules and their function:
 #### accepted
 
 The field under validation must be `"yes"`, `"on"`, `1`, or `true`. This is useful for validating "Terms of Service" acceptance or similar fields.
+
+<a name="rule-accepted-if"></a>
+#### accepted_if:anotherfield,value,...
+
+The field under validation must be `"yes"`, `"on"`, `1`, or `true` if another field under validation is equal to a specified value. This is useful for validating "Terms of Service" acceptance or similar fields.
 
 <a name="rule-active-url"></a>
 #### active_url
@@ -791,6 +879,40 @@ The field under validation must be entirely alpha-numeric characters.
 
 The field under validation must be a PHP `array`.
 
+When additional values are provided to the `array` rule, each key in the input array must be present within the list of values provided to the rule. In the following example, the `admin` key in the input array is invalid since it is not contained in the list of values provided to the `array` rule:
+
+    use Illuminate\Support\Facades\Validator;
+
+    $input = [
+        'user' => [
+            'name' => 'Taylor Otwell',
+            'username' => 'taylorotwell',
+            'admin' => true,
+        ],
+    ];
+
+    Validator::make($input, [
+        'user' => 'array:username,locale',
+    ]);
+
+In general, you should always specify the array keys that are allowed to be present within your array. Otherwise, the validator's `validate` and `validated` methods will return all of the validated data, including the array and all of its keys, even if those keys were not validated by other nested array validation rules.
+
+If you would like, you may instruct Laravel's validator to never include unvalidated array keys in the "validated" data it returns, even if you use the `array` rule without specifying a list of allowed keys. To accomplish this, you may call the validator's `excludeUnvalidatedArrayKeys` method in the `boot` method of your application's `AppServiceProvider`. After doing so, the validator will include array keys in the "validated" data it returns only when those keys were specifically validated by [nested array rules](#validating-arrays):
+
+```php
+use Illuminate\Support\Facades\Validator;
+
+/**
+ * Register any application services.
+ *
+ * @return void
+ */
+public function boot()
+{
+    Validator::excludeUnvalidatedArrayKeys();
+}
+```
+
 <a name="rule-bail"></a>
 #### bail
 
@@ -826,6 +948,13 @@ The field under validation must be able to be cast as a boolean. Accepted input 
 #### confirmed
 
 The field under validation must have a matching field of `{field}_confirmation`. For example, if the field under validation is `password`, a matching `password_confirmation` field must be present in the input.
+
+<a name="rule-current-password"></a>
+#### current_password
+
+The field under validation must match the authenticated user's password. You may specify an [authentication guard](/docs/{{version}}/authentication) using the rule's first parameter:
+
+    'password' => 'current_password:api'
 
 <a name="rule-date"></a>
 #### date
@@ -923,6 +1052,11 @@ The `filter` validator, which uses PHP's `filter_var` function, ships with Larav
 
 The field under validation must end with one of the given values.
 
+<a name="rule-exclude"></a>
+#### exclude
+
+The field under validation will be excluded from the request data returned by the `validate` and `validated` methods.
+
 <a name="rule-exclude-if"></a>
 #### exclude_if:_anotherfield_,_value_
 
@@ -932,6 +1066,11 @@ The field under validation will be excluded from the request data returned by th
 #### exclude_unless:_anotherfield_,_value_
 
 The field under validation will be excluded from the request data returned by the `validate` and `validated` methods unless _anotherfield_'s field is equal to _value_. If _value_ is `null` (`exclude_unless:name,null`), the field under validation will be excluded unless the comparison field is `null` or the comparison field is missing from the request data.
+
+<a name="rule-exclude-without"></a>
+#### exclude_without:_anotherfield_
+
+The field under validation will be excluded from the request data returned by the `validate` and `validated` methods if the _anotherfield_ field is not present.
 
 <a name="rule-exists"></a>
 #### exists:_table_,_column_
@@ -1011,6 +1150,23 @@ The field under validation must be included in the given list of values. Since t
         'zones' => [
             'required',
             Rule::in(['first-zone', 'second-zone']),
+        ],
+    ]);
+
+When the `in` rule is combined with the `array` rule, each value in the input array must be present within the list of values provided to the `in` rule. In the following example, the `LAS` airport code in the input array is invalid since it is not contained in the list of airports provided to the `in` rule:
+
+    use Illuminate\Support\Facades\Validator;
+    use Illuminate\Validation\Rule;
+
+    $input = [
+        'airports' => ['NYC', 'LAS'],
+    ];
+
+    Validator::make($input, [
+        'airports' => [
+            'required',
+            'array',
+            Rule::in(['NYC', 'LIT']),
         ],
     ]);
 
@@ -1094,6 +1250,8 @@ The field under validation must have a minimum _value_. Strings, numerics, array
 
 The field under validation must be a multiple of _value_.
 
+> {note} The [`bcmath` PHP extension](https://www.php.net/manual/en/book.bc.php) is required in order to use the `multiple_of` rule.
+
 <a name="rule-not-in"></a>
 #### not_in:_foo_,_bar_,...
 
@@ -1130,9 +1288,9 @@ The field under validation must be [numeric](https://www.php.net/manual/en/funct
 <a name="rule-password"></a>
 #### password
 
-The field under validation must match the authenticated user's password. You may specify an [authentication guard](/docs/{{version}}/authentication) using the rule's first parameter:
+The field under validation must match the authenticated user's password.
 
-    'password' => 'password:api'
+> {note} This rule was renamed to `current_password` with the intention of removing it in Laravel 9. Please use the [Current Password](#rule-current-password) rule instead.
 
 <a name="rule-present"></a>
 #### present
@@ -1153,6 +1311,11 @@ The field under validation must be empty or not present if the _anotherfield_ fi
 #### prohibited_unless:_anotherfield_,_value_,...
 
 The field under validation must be empty or not present unless the _anotherfield_ field is equal to any _value_.
+
+<a name="rule-prohibits"></a>
+#### prohibits:_anotherfield_,...
+
+If the field under validation is present, no fields in _anotherfield_ can be present, even if empty.
 
 <a name="rule-regex"></a>
 #### regex:_pattern_
@@ -1260,7 +1423,7 @@ The field under validation must be a string. If you would like to allow the fiel
 The field under validation must be a valid timezone identifier according to the `timezone_identifiers_list` PHP function.
 
 <a name="rule-unique"></a>
-#### unique:_table_,_column_,_except_,_idColumn_
+#### unique:_table_,_column_
 
 The field under validation must not exist within the given database table.
 
@@ -1357,7 +1520,7 @@ Alternatively, you may use the `exclude_unless` rule to not validate a given fie
 
 In some situations, you may wish to run validation checks against a field **only** if that field is present in the data being validated. To quickly accomplish this, add the `sometimes` rule to your rule list:
 
-    $v = Validator::make($request->all(), [
+    $v = Validator::make($data, [
         'email' => 'sometimes|required|email',
     ]);
 
@@ -1379,22 +1542,90 @@ Sometimes you may wish to add validation rules based on more complex conditional
 
 Let's assume our web application is for game collectors. If a game collector registers with our application and they own more than 100 games, we want them to explain why they own so many games. For example, perhaps they run a game resale shop, or maybe they just enjoy collecting games. To conditionally add this requirement, we can use the `sometimes` method on the `Validator` instance.
 
-    $v->sometimes('reason', 'required|max:500', function ($input) {
+    $validator->sometimes('reason', 'required|max:500', function ($input) {
         return $input->games >= 100;
     });
 
 The first argument passed to the `sometimes` method is the name of the field we are conditionally validating. The second argument is a list of the rules we want to add. If the closure passed as the third argument returns `true`, the rules will be added. This method makes it a breeze to build complex conditional validations. You may even add conditional validations for several fields at once:
 
-    $v->sometimes(['reason', 'cost'], 'required', function ($input) {
+    $validator->sometimes(['reason', 'cost'], 'required', function ($input) {
         return $input->games >= 100;
     });
 
 > {tip} The `$input` parameter passed to your closure will be an instance of `Illuminate\Support\Fluent` and may be used to access your input and files under validation.
 
+<a name="complex-conditional-array-validation"></a>
+#### Complex Conditional Array Validation
+
+Sometimes you may want to validate a field based on another field in the same nested array whose index you do not know. In these situations, you may allow your closure to receive a second argument which will be the current individual item in the array being validated:
+
+    $input = [
+        'channels' => [
+            [
+                'type' => 'email',
+                'address' => 'abigail@example.com',
+            ],
+            [
+                'type' => 'url',
+                'address' => 'https://example.com',
+            ],
+        ],
+    ];
+
+    $validator->sometimes('channels.*.address', 'email', function($input, $item) {
+        return $item->type === 'email';
+    });
+
+    $validator->sometimes('channels.*.address', 'url', function($input, $item) {
+        return $item->type !== 'email';
+    });
+
+Like the `$input` parameter passed to the closure, the `$item` parameter is an instance of `Illuminate\Support\Fluent` when the attribute data is an array; otherwise, it is a string.
+
 <a name="validating-arrays"></a>
 ## Validating Arrays
 
-Validating array based form input fields doesn't have to be a pain. You may use "dot notation" to validate attributes within an array. For example, if the incoming HTTP request contains a `photos[profile]` field, you may validate it like so:
+As discussed in the [`array` validation rule documentation](#rule-array), the `array` rule accepts a list of allowed array keys. If any additional keys are present within the array, validation will fail:
+
+    use Illuminate\Support\Facades\Validator;
+
+    $input = [
+        'user' => [
+            'name' => 'Taylor Otwell',
+            'username' => 'taylorotwell',
+            'admin' => true,
+        ],
+    ];
+
+    Validator::make($input, [
+        'user' => 'array:username,locale',
+    ]);
+
+In general, you should always specify the array keys that are allowed to be present within your array. Otherwise, the validator's `validate` and `validated` methods will return all of the validated data, including the array and all of its keys, even if those keys were not validated by other nested array validation rules.
+
+<a name="excluding-unvalidated-array-keys"></a>
+### Excluding Unvalidated Array Keys
+
+If you would like, you may instruct Laravel's validator to never include unvalidated array keys in the "validated" data it returns, even if you use the `array` rule without specifying a list of allowed keys. To accomplish this, you may call the validator's `excludeUnvalidatedArrayKeys` method in the `boot` method of your application's `AppServiceProvider`. After doing so, the validator will include array keys in the "validated" data it returns only when those keys were specifically validated by [nested array rules](#validating-arrays):
+
+```php
+use Illuminate\Support\Facades\Validator;
+
+/**
+ * Register any application services.
+ *
+ * @return void
+ */
+public function boot()
+{
+    Validator::excludeUnvalidatedArrayKeys();
+}
+```
+
+<a name="validating-nested-array-input"></a>
+### Validating Nested Array Input
+
+Validating nested array based form input fields doesn't have to be a pain. You may use "dot notation" to validate attributes within an array. For example, if the incoming HTTP request contains a `photos[profile]` field, you may validate it like so:
 
     use Illuminate\Support\Facades\Validator;
 
@@ -1465,6 +1696,35 @@ Of course, you may chain all the methods in the examples above:
         ->numbers()
         ->symbols()
         ->uncompromised()
+
+<a name="defining-default-password-rules"></a>
+#### Defining Default Password Rules
+
+You may find it convenient to specify the default validation rules for passwords in a single location of your application. You can easily accomplish this using the `Password::defaults` method, which accepts a closure. The closure given to the `defaults` method should return the default configuration of the Password rule. Typically, the `defaults` rule should be called within the `boot` method of one of your application's service providers:
+
+```php
+use Illuminate\Validation\Rules\Password;
+
+/**
+ * Bootstrap any application services.
+ *
+ * @return void
+ */
+public function boot()
+{
+    Password::defaults(function () {
+        $rule = Password::min(8);
+
+        return $this->app->isProduction()
+                    ? $rule->mixedCase()->uncompromised()
+                    : $rule;
+    });
+}
+```
+
+Then, when you would like to apply the default rules to a particular password undergoing validation, you may invoke the `defaults` method with no arguments:
+
+    'password' => ['required', Password::defaults()],
 
 <a name="custom-validation-rules"></a>
 ## Custom Validation Rules
@@ -1562,5 +1822,9 @@ By default, when an attribute being validated is not present or contains an empt
     Validator::make($input, $rules)->passes(); // true
 
 For a custom rule to run even when an attribute is empty, the rule must imply that the attribute is required. To create an "implicit" rule, implement the `Illuminate\Contracts\Validation\ImplicitRule` interface. This interface serves as a "marker interface" for the validator; therefore, it does not contain any additional methods you need to implement beyond the methods required by the typical `Rule` interface.
+
+To generate a new implicit rule object, you may use the `make:rule` Artisan command with the `--implicit` option :
+
+     php artisan make:rule Uppercase --implicit
 
 > {note} An "implicit" rule only _implies_ that the attribute is required. Whether it actually invalidates a missing or empty attribute is up to you.

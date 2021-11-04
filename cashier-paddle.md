@@ -471,7 +471,7 @@ To create a subscription, first retrieve an instance of your billable model, whi
         return view('billing', ['payLink' => $payLink]);
     });
 
-The first argument passed to the `newSubscription` method should be the name of the subscription. If your application only offers a single subscription, you might call this `default` or `primary`. The second argument is the specific plan the user is subscribing to. This value should correspond to the plan's identifier in Paddle. The `returnTo` method accepts a URL that your user will be redirected to after they successfully complete the checkout.
+The first argument passed to the `newSubscription` method should be the internal name of the subscription. If your application only offers a single subscription, you might call this `default` or `primary`. This subscription name is only for internal application usage and is not meant to be shown to users. In addition, it should not contain spaces and it should never be changed after creating the subscription. The second argument given to the `newSubscription` method is the specific plan the user is subscribing to. This value should correspond to the plan's identifier in Paddle. The `returnTo` method accepts a URL that your user will be redirected to after they successfully complete the checkout.
 
 The `create` method will create a pay link which you can use to generate a payment button. The payment button can be generated using the `paddle-button` [Blade component](/docs/{{version}}/blade#components) that is included with Cashier Paddle:
 
@@ -941,37 +941,53 @@ Since Paddle webhooks need to bypass Laravel's [CSRF protection](/docs/{{version
 <a name="defining-webhook-event-handlers"></a>
 ### Defining Webhook Event Handlers
 
-Cashier automatically handles subscription cancellation on failed charges and other common Paddle webhooks, but if you have additional webhook events you would like to handle, you should extend Cashier's `WebhookController`.
+Cashier automatically handles subscription cancellation on failed charges and other common Paddle webhooks. However, if you have additional webhook events you would like to handle, you may do so by listening to the following events that are dispatched by Cashier:
 
-Your controller's method names should correspond to Cashier's controller method conventions. Specifically, methods should be prefixed with `handle` and the "camel case" name of the webhook you wish to handle. For example, if you wish to handle the `payment_succeeded` webhook, you should add a `handlePaymentSucceeded` method to the controller:
+- `Laravel\Paddle\Events\WebhookReceived`
+- `Laravel\Paddle\Events\WebhookHandled`
+
+Both events contain the full payload of the Paddle webhook. For example, if you wish to handle the `invoice.payment_succeeded` webhook, you may register a [listener](/docs/{{version}}/events#defining-listeners) that will handle the event:
 
     <?php
 
-    namespace App\Http\Controllers;
+    namespace App\Listeners;
 
-    use Laravel\Paddle\Http\Controllers\WebhookController as CashierController;
+    use Laravel\Paddle\Events\WebhookReceived;
 
-    class WebhookController extends CashierController
+    class PaddleEventListener
     {
         /**
-         * Handle the payment succeeded webhook.
+         * Handle received Paddle webhooks.
          *
-         * @param  array  $payload
+         * @param  \Laravel\Paddle\Events\WebhookReceived  $event
          * @return void
          */
-        public function handlePaymentSucceeded($payload)
+        public function handle(WebhookReceived $event)
         {
-            // Handle the event...
+            if ($event->payload['alert_name'] === 'payment_succeeded') {
+                // Handle the incoming event...
+            }
         }
     }
 
-Next, define a route to your Cashier webhook controller within your application's `routes/web.php` file. This will overwrite the default route registered by Cashier's service provider:
+Once your listener has been defined, you may register it within your application's `EventServiceProvider`:
 
-    use App\Http\Controllers\WebhookController;
+    <?php
 
-    Route::post('/paddle/webhook', WebhookController::class);
+    namespace App\Providers;
 
-Cashier emits a `Laravel\Paddle\Events\WebhookReceived` event when a webhook is received and a `Laravel\Paddle\Events\WebhookHandled` event when a webhook was handled. Both events contain the full payload of the Paddle webhook.
+    use App\Listeners\PaddleEventListener;
+    use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+    use Laravel\Paddle\Events\WebhookReceived;
+
+    class EventServiceProvider extends ServiceProvider
+    {
+        protected $listen = [
+            WebhookReceived::class => [
+                PaddleEventListener::class,
+            ],
+        ];
+    }
 
 Cashier also emit events dedicated to the type of the received webhook. In addition to the full payload from Paddle, they also contain the relevant models that were used to process the webhook such as the billable model, the subscription, or the receipt:
 

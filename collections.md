@@ -62,7 +62,6 @@ If necessary, you may define macros that accept additional arguments:
 
     use Illuminate\Support\Collection;
     use Illuminate\Support\Facades\Lang;
-    use Illuminate\Support\Str;
 
     Collection::macro('toLocale', function ($locale) {
         return $this->map(function ($value) use ($locale) {
@@ -163,7 +162,9 @@ For the majority of the remaining collection documentation, we'll discuss each m
 [push](#method-push)
 [put](#method-put)
 [random](#method-random)
+[range](#method-range)
 [reduce](#method-reduce)
+[reduceSpread](#method-reduce-spread)
 [reject](#method-reject)
 [replace](#method-replace)
 [replaceRecursive](#method-replacerecursive)
@@ -171,6 +172,7 @@ For the majority of the remaining collection documentation, we'll discuss each m
 [search](#method-search)
 [shift](#method-shift)
 [shuffle](#method-shuffle)
+[sliding](#method-sliding)
 [skip](#method-skip)
 [skipUntil](#method-skipuntil)
 [skipWhile](#method-skipwhile)
@@ -322,19 +324,6 @@ The `collapse` method collapses a collection of arrays into a single, flat colle
 
     // [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-<a name="method-combine"></a>
-#### `combine()` {#collection-method}
-
-The `combine` method combines the values of the collection, as keys, with the values of another array or collection:
-
-    $collection = collect(['name', 'age']);
-
-    $combined = $collection->combine(['George', 29]);
-
-    $combined->all();
-
-    // ['name' => 'George', 'age' => 29]
-
 <a name="method-collect"></a>
 #### `collect()` {#collection-method}
 
@@ -368,6 +357,19 @@ The `collect` method is primarily useful for converting [lazy collections](#lazy
 
 > {tip} The `collect` method is especially useful when you have an instance of `Enumerable` and need a non-lazy collection instance. Since `collect()` is part of the `Enumerable` contract, you can safely use it to get a `Collection` instance.
 
+<a name="method-combine"></a>
+#### `combine()` {#collection-method}
+
+The `combine` method combines the values of the collection, as keys, with the values of another array or collection:
+
+    $collection = collect(['name', 'age']);
+
+    $combined = $collection->combine(['George', 29]);
+
+    $combined->all();
+
+    // ['name' => 'George', 'age' => 29]
+
 <a name="method-concat"></a>
 #### `concat()` {#collection-method}
 
@@ -384,7 +386,7 @@ The `concat` method appends the given `array` or collection's values onto the en
 <a name="method-contains"></a>
 #### `contains()` {#collection-method}
 
-You may also pass a closure to the `contains` to determine if an element exists in the collection matching a given truth test:
+The `contains` method determines whether the collection contains a given item. You may pass a closure to the `contains` method to determine if an element exists in the collection matching a given truth test:
 
     $collection = collect([1, 2, 3, 4, 5]);
 
@@ -619,7 +621,7 @@ If the collection contains arrays or objects, you can pass the key of the attrib
         ['email' => 'abigail@example.com', 'position' => 'Developer'],
         ['email' => 'james@example.com', 'position' => 'Designer'],
         ['email' => 'victoria@example.com', 'position' => 'Developer'],
-    ])
+    ]);
 
     $employees->duplicates('position');
 
@@ -1287,7 +1289,7 @@ The `mapWithKeys` method iterates through the collection and passes each value t
         ]
     ]);
 
-    $keyed = $collection->mapWithKeys(function ($item) {
+    $keyed = $collection->mapWithKeys(function ($item, $key) {
         return [$item['email'] => $item['name']];
     });
 
@@ -1604,6 +1606,18 @@ The `pop` method removes and returns the last item from the collection:
 
     // [1, 2, 3, 4]
 
+You may pass an integer to the `pop` method to remove and return multiple items from the end of a collection:
+
+    $collection = collect([1, 2, 3, 4, 5]);
+
+    $collection->pop(3);
+
+    // collect([5, 4, 3])
+
+    $collection->all();
+
+    // [1, 2]
+
 <a name="method-prepend"></a>
 #### `prepend()` {#collection-method}
 
@@ -1689,6 +1703,17 @@ You may pass an integer to `random` to specify how many items you would like to 
 
 If the collection instance has fewer items than requested, the `random` method will throw an `InvalidArgumentException`.
 
+<a name="method-range"></a>
+#### `range()` {#collection-method}
+
+The `range` method returns a collection containing integers between the specified range:
+
+    $collection = collect()->range(3, 6);
+
+    $collection->all();
+
+    // [3, 4, 5, 6]
+
 <a name="method-reduce"></a>
 #### `reduce()` {#collection-method}
 
@@ -1729,6 +1754,25 @@ The `reduce` method also passes array keys in associative collections to the giv
     });
 
     // 4264
+
+<a name="method-reduce-spread"></a>
+#### `reduceSpread()` {#collection-method}
+
+The `reduceSpread` method reduces the collection to an array of values, passing the results of each iteration into the subsequent iteration. This method is similar to the `reduce` method; however, it can accept multiple initial values:
+
+```php
+[$creditsRemaining, $batch] = Image::where('status', 'unprocessed')
+        ->get()
+        ->reduceSpread(function ($creditsRemaining, $batch, $image) {
+            if ($creditsRemaining >= $image->creditsRequired()) {
+                $batch->push($image);
+
+                $creditsRemaining -= $image->creditsRequired();
+            }
+
+            return [$creditsRemaining, $batch];
+        }, $creditsAvailable, collect());
+```
 
 <a name="method-reject"></a>
 #### `reject()` {#collection-method}
@@ -1845,6 +1889,18 @@ The `shift` method removes and returns the first item from the collection:
 
     // [2, 3, 4, 5]
 
+You may pass an integer to the `shift` method to remove and return multiple items from the beginning of a collection:
+
+    $collection = collect([1, 2, 3, 4, 5]);
+
+    $collection->shift(3);
+
+    // collect([1, 2, 3])
+
+    $collection->all();
+
+    // [4, 5]
+
 <a name="method-shuffle"></a>
 #### `shuffle()` {#collection-method}
 
@@ -1857,6 +1913,35 @@ The `shuffle` method randomly shuffles the items in the collection:
     $shuffled->all();
 
     // [3, 2, 5, 1, 4] - (generated randomly)
+
+<a name="method-sliding"></a>
+#### `sliding()` {#collection-method}
+
+The `sliding` method returns a new collection of chunks representing a "sliding window" view of the items in the collection:
+
+    $collection = collect([1, 2, 3, 4, 5]);
+
+    $chunks = $collection->sliding(2);
+
+    $chunks->toArray();
+
+    // [[1, 2], [2, 3], [3, 4], [4, 5]]
+
+This is especially useful in conjunction with the [`eachSpread`](#method-eachspread) method:
+
+    $transactions->sliding(2)->eachSpread(function ($previous, $current) {
+        $current->total = $previous->total + $current->amount;
+    });
+
+You may optionally pass a second "step" value, which determines the distance between the first item of every chunk:
+
+    $collection = collect([1, 2, 3, 4, 5]);
+
+    $chunks = $collection->sliding(3, step: 2);
+
+    $chunks->toArray();
+
+    // [[1, 2, 3], [3, 4, 5]]
 
 <a name="method-skip"></a>
 #### `skip()` {#collection-method}
@@ -1947,7 +2032,7 @@ The `sole` method returns the first element in the collection that passes a give
         return $value === 2;
     });
 
-    // 3
+    // 2
 
 You may also pass a key / value pair to the `sole` method, which will return the first element in the collection that matches the given pair, but only if it exactly one element matches:
 
@@ -2408,7 +2493,7 @@ The `union` method adds the given array to the collection. If the given array co
 
     $collection = collect([1 => ['a'], 2 => ['b']]);
 
-    $union = $collection->union([3 => ['c'], 1 => ['b']]);
+    $union = $collection->union([3 => ['c'], 1 => ['d']]);
 
     $union->all();
 
@@ -2493,6 +2578,20 @@ The `unless` method will execute the given callback unless the first argument gi
 
     // [1, 2, 3, 5]
 
+A second callback may be passed to the `unless` method. The second callback will be executed when the first argument given to the `unless` method evaluates to `true`:
+
+    $collection = collect([1, 2, 3]);
+
+    $collection->unless(true, function ($collection) {
+        return $collection->push(4);
+    }, function ($collection) {
+        return $collection->push(5);
+    });
+
+    $collection->all();
+
+    // [1, 2, 3, 5]
+
 For the inverse of `unless`, see the [`when`](#method-when) method.
 
 <a name="method-unlessempty"></a>
@@ -2561,6 +2660,20 @@ The `when` method will execute the given callback when the first argument given 
     $collection->all();
 
     // [1, 2, 3, 4]
+
+A second callback may be passed to the `when` method. The second callback will be executed when the first argument given to the `when` method evaluates to `false`:
+
+    $collection = collect([1, 2, 3]);
+
+    $collection->when(false, function ($collection) {
+        return $collection->push(4);
+    }, function ($collection) {
+        return $collection->push(5);
+    });
+
+    $collection->all();
+
+    // [1, 2, 3, 5]
 
 For the inverse of `when`, see the [`unless`](#method-unless) method.
 

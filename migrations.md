@@ -21,6 +21,7 @@
     - [Renaming Indexes](#renaming-indexes)
     - [Dropping Indexes](#dropping-indexes)
     - [Foreign Key Constraints](#foreign-key-constraints)
+- [Events](#events)
 
 <a name="introduction"></a>
 ## Introduction
@@ -337,6 +338,8 @@ The schema builder blueprint offers a variety of methods that correspond to the 
 [enum](#column-method-enum)
 [float](#column-method-float)
 [foreignId](#column-method-foreignId)
+[foreignIdFor](#column-method-foreignIdFor)
+[foreignUuid](#column-method-foreignUuid)
 [geometryCollection](#column-method-geometryCollection)
 [geometry](#column-method-geometry)
 [id](#column-method-id)
@@ -475,9 +478,23 @@ The `float` method creates a `FLOAT` equivalent column with the given precision 
 <a name="column-method-foreignId"></a>
 #### `foreignId()` {#collection-method}
 
-The `foreignId` method is an alias of the `unsignedBigInteger` method:
+The `foreignId` method creates an `UNSIGNED BIGINT` equivalent column:
 
     $table->foreignId('user_id');
+
+<a name="column-method-foreignIdFor"></a>
+#### `foreignIdFor()` {#collection-method}
+
+The `foreignIdFor` method adds a `{column}_id UNSIGNED BIG INT` equivalent column for a given model class:
+
+    $table->foreignIdFor(User::class);
+
+<a name="column-method-foreignUuid"></a>
+#### `foreignUuid()` {#collection-method}
+
+The `foreignUuid` method creates a `UUID` equivalent column:
+
+    $table->foreignUuid('user_id');
 
 <a name="column-method-geometryCollection"></a>
 #### `geometryCollection()` {#collection-method}
@@ -610,7 +627,7 @@ The `multiPolygon` method creates a `MULTIPOLYGON` equivalent column:
 <a name="column-method-nullableTimestamps"></a>
 #### `nullableTimestamps()` {#collection-method}
 
-The method is similar to the [timestamps](#column-method-timestamps) method; however, the column that is created will be "nullable":
+The `nullableTimestamps` method is an alias of the [timestamps](#column-method-timestamps) method:
 
     $table->nullableTimestamps(0);
 
@@ -851,7 +868,7 @@ Modifier  |  Description
 `->first()`  |  Place the column "first" in the table (MySQL).
 `->from($integer)`  |  Set the starting value of an auto-incrementing field (MySQL / PostgreSQL).
 `->nullable($value = true)`  |  Allow NULL values to be inserted into the column.
-`->storedAs($expression)`  |  Create a stored generated column (MySQL).
+`->storedAs($expression)`  |  Create a stored generated column (MySQL / PostgreSQL).
 `->unsigned()`  |  Set INTEGER columns as UNSIGNED (MySQL).
 `->useCurrent()`  |  Set TIMESTAMP columns to use CURRENT_TIMESTAMP as default value.
 `->useCurrentOnUpdate()`  |  Set TIMESTAMP columns to use CURRENT_TIMESTAMP when a record is updated.
@@ -1082,18 +1099,17 @@ Laravel also provides support for creating foreign key constraints, which are us
         $table->foreign('user_id')->references('id')->on('users');
     });
 
-Since this syntax is rather verbose, Laravel provides additional, terser methods that use conventions to provide a better developer experience. The example above can be rewritten like so:
+Since this syntax is rather verbose, Laravel provides additional, terser methods that use conventions to provide a better developer experience. When using the `foreignId` method to create your column, the example above can be rewritten like so:
 
     Schema::table('posts', function (Blueprint $table) {
         $table->foreignId('user_id')->constrained();
     });
 
-The `foreignId` method is an alias for `unsignedBigInteger` while the `constrained` method will use conventions to determine the table and column name being referenced. If your table name does not match Laravel's conventions, you may specify the table name by passing it as an argument to the `constrained` method:
+The `foreignId` method creates an `UNSIGNED BIGINT` equivalent column, while the `constrained` method will use conventions to determine the table and column name being referenced. If your table name does not match Laravel's conventions, you may specify the table name by passing it as an argument to the `constrained` method:
 
     Schema::table('posts', function (Blueprint $table) {
         $table->foreignId('user_id')->constrained('users');
     });
-
 
 You may also specify the desired action for the "on delete" and "on update" properties of the constraint:
 
@@ -1129,3 +1145,16 @@ You may enable or disable foreign key constraints within your migrations by usin
     Schema::disableForeignKeyConstraints();
 
 > {note} SQLite disables foreign key constraints by default. When using SQLite, make sure to [enable foreign key support](/docs/{{version}}/database#configuration) in your database configuration before attempting to create them in your migrations. In addition, SQLite only supports foreign keys upon creation of the table and [not when tables are altered](https://www.sqlite.org/omitted.html).
+
+<a name="events"></a>
+## Events
+
+For convenience, each migration operation will dispatch an [event](/docs/{{version}}/events). All of the following events extend the base `Illuminate\Database\Events\MigrationEvent` class:
+
+ Class | Description
+-------|-------
+| `Illuminate\Database\Events\MigrationsStarted` | A batch of migrations is about to be executed. |
+| `Illuminate\Database\Events\MigrationsEnded` | A batch of migrations has finished executing. |
+| `Illuminate\Database\Events\MigrationStarted` | A single migration is about to be executed. |
+| `Illuminate\Database\Events\MigrationEnded` | A single migration has finished executing. |
+

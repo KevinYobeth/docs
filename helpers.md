@@ -53,6 +53,7 @@ Laravel includes a variety of global "helper" PHP functions. Many of these funct
 [Arr::shuffle](#method-array-shuffle)
 [Arr::sort](#method-array-sort)
 [Arr::sortRecursive](#method-array-sort-recursive)
+[Arr::toCssClasses](#method-array-to-css-classes)
 [Arr::where](#method-array-where)
 [Arr::wrap](#method-array-wrap)
 [data_fill](#method-data-fill)
@@ -98,6 +99,7 @@ Laravel includes a variety of global "helper" PHP functions. Many of these funct
 [Str::containsAll](#method-str-contains-all)
 [Str::endsWith](#method-ends-with)
 [Str::finish](#method-str-finish)
+[Str::headline](#method-str-headline)
 [Str::is](#method-str-is)
 [Str::isAscii](#method-str-is-ascii)
 [Str::isUuid](#method-str-is-uuid)
@@ -106,6 +108,7 @@ Laravel includes a variety of global "helper" PHP functions. Many of these funct
 [Str::limit](#method-str-limit)
 [Str::lower](#method-str-lower)
 [Str::markdown](#method-str-markdown)
+[Str::mask](#method-str-mask)
 [Str::orderedUuid](#method-str-ordered-uuid)
 [Str::padBoth](#method-str-padboth)
 [Str::padLeft](#method-str-padleft)
@@ -161,12 +164,14 @@ Laravel includes a variety of global "helper" PHP functions. Many of these funct
 [isAscii](#method-fluent-str-is-ascii)
 [isEmpty](#method-fluent-str-is-empty)
 [isNotEmpty](#method-fluent-str-is-not-empty)
+[isUuid](#method-fluent-str-is-uuid)
 [kebab](#method-fluent-str-kebab)
 [length](#method-fluent-str-length)
 [limit](#method-fluent-str-limit)
 [lower](#method-fluent-str-lower)
 [ltrim](#method-fluent-str-ltrim)
 [markdown](#method-fluent-str-markdown)
+[mask](#method-fluent-str-mask)
 [match](#method-fluent-str-match)
 [matchAll](#method-fluent-str-match-all)
 [padBoth](#method-fluent-str-padboth)
@@ -773,6 +778,26 @@ The `Arr::sortRecursive` method recursively sorts an array using the `sort` func
         ]
     */
 
+<a name="method-array-to-css-classes"></a>
+#### `Arr::toCssClasses()` {#collection-method}
+
+The `Arr::toCssClasses` conditionally compiles a CSS class string. The method accepts an array of classes where the array key contains the class or classes you wish to add, while the value is a boolean expression. If the array element has a numeric key, it will always be included in the rendered class list:
+
+    use Illuminate\Support\Arr;
+
+    $isActive = false;
+    $hasError = true;
+
+    $array = ['p-4', 'font-bold' => $isActive, 'bg-red' => $hasError];
+
+    $classes = Arr::toCssClasses($array);
+
+    /*
+        'p-4 bg-red'
+    */
+
+This method powers Laravel's functionality allowing [merging classes with a Blade component's attribute bag](/docs/{{version}}/blade#conditionally-merge-classes) as well as the `@class` [Blade directive](/docs/{{version}}/blade#conditional-classes).
+
 <a name="method-array-where"></a>
 #### `Arr::where()` {#collection-method}
 
@@ -1195,6 +1220,21 @@ The `Str::finish` method adds a single instance of the given value to a string i
 
     // this/string/
 
+<a name="method-str-headline"></a>
+#### `Str::headline()` {#collection-method}
+
+The `Str::headline` method will convert strings delimited by casing, hyphens, or underscores into a space delimited string with each word's first letter capitalized:
+
+    use Illuminate\Support\Str;
+
+    $headline = Str::headline('steve_jobs');
+
+    // Steve Jobs
+
+    $headline = Str::headline('EmailNotificationSent');
+
+    // Email Notification Sent
+
 <a name="method-str-is"></a>
 #### `Str::is()` {#collection-method}
 
@@ -1308,6 +1348,23 @@ The `Str::markdown` method converts GitHub flavored Markdown into HTML:
     ]);
 
     // <h1>Taylor Otwell</h1>
+
+<a name="method-str-mask"></a>
+#### `Str::mask()` {#collection-method}
+
+The `Str::mask` method masks a portion of a string with a repeated character, and may be used to obfuscate segments of strings such as email addresses and phone numbers:
+
+    use Illuminate\Support\Str;
+
+    $string = Str::mask('taylor@example.com', '*', 3);
+
+    // tay***************
+
+If needed, you provide a negative number as the third argument to the `mask` method, which will instruct the method to begin masking at the given distance from the end of the string:
+
+    $string = Str::mask('taylor@example.com', '*', -15, 3);
+
+    // tay***@example.com
 
 <a name="method-str-ordered-uuid"></a>
 #### `Str::orderedUuid()` {#collection-method}
@@ -1526,6 +1583,10 @@ The `Str::snake` method converts the given string to `snake_case`:
 
     // foo_bar
 
+    $converted = Str::snake('fooBar', '-');
+
+    // foo-bar
+
 <a name="method-str-start"></a>
 #### `Str::start()` {#collection-method}
 
@@ -1634,9 +1695,9 @@ The `Str::uuid` method generates a UUID (version 4):
     return (string) Str::uuid();
 
 <a name="method-str-word-count"></a>
-### `wordCount`
+#### `Str::wordCount()` {#collection-method}
 
-The `wordCount` function returns the number of words that a string contains:
+The `Str::wordCount` method returns the number of words that a string contains:
 
 ```php
 use Illuminate\Support\Str;
@@ -1944,6 +2005,21 @@ The `isNotEmpty` method determines if the given string is not empty:
 
     // true
 
+<a name="method-fluent-str-is-uuid"></a>
+#### `isUuid` {#collection-method}
+
+The `isUuid` method determines if a given string is a UUID:
+
+    use Illuminate\Support\Str;
+
+    $result = Str::of('5ace9ab9-e9cf-4ec6-a19d-5881212a452c')->isUuid();
+
+    // true
+
+    $result = Str::of('Taylor')->isUuid();
+
+    // false
+
 <a name="method-fluent-str-kebab"></a>
 #### `kebab` {#collection-method}
 
@@ -2027,6 +2103,23 @@ The `markdown` method converts GitHub flavored Markdown into HTML:
     ]);
 
     // <h1>Taylor Otwell</h1>
+
+<a name="method-fluent-str-mask"></a>
+#### `mask` {#collection-method}
+
+The `mask` method masks a portion of a string with a repeated character, and may be used to obfuscate segments of strings such as email addresses and phone numbers:
+
+    use Illuminate\Support\Str;
+
+    $string = Str::of('taylor@example.com')->mask('*', 3);
+
+    // tay***************
+
+If needed, you provide a negative number as the third argument to the `mask` method, which will instruct the method to begin masking at the given distance from the end of the string:
+
+    $string = Str::of('taylor@example.com')->mask('*', -15, 3);
+
+    // tay***@example.com
 
 <a name="method-fluent-str-match"></a>
 #### `match` {#collection-method}
@@ -2464,9 +2557,9 @@ The `whenEmpty` method invokes the given closure if the string is empty. If the 
     // 'Laravel'
 
 <a name="method-fluent-str-word-count"></a>
-### `wordCount`
+#### `wordCount` {#collection-method}
 
-The `wordCount` function returns the number of words that a string contains:
+The `wordCount` method returns the number of words that a string contains:
 
 ```php
 use Illuminate\Support\Str;
@@ -2940,6 +3033,23 @@ The `retry` function attempts to execute the given callback until the given maxi
     return retry(5, function () {
         // Attempt 5 times while resting 100ms in between attempts...
     }, 100);
+
+If you would like to manually calculate the number of milliseconds to sleep in between attempts, you may pass a closure as the third argument to the `retry` function:
+
+    return retry(5, function () {
+        // ...
+    }, function ($attempt) {
+        return $attempt * 100;
+    });
+
+
+To only retry under specific conditions, you may pass a closure as the fourth argument to the `retry` function:
+
+    return retry(5, function () {
+        // ...
+    }, 100, function ($exception) {
+        return $exception instanceof RetryException;
+    });
 
 <a name="method-session"></a>
 #### `session()` {#collection-method}

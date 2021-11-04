@@ -226,6 +226,16 @@ You may retrieve all of the incoming request's input data as an `array` using th
 
     $input = $request->all();
 
+Using the `collect` method, you may retrieve all of the incoming request's input data as a [collection](/docs/{{version}}/collections):
+
+    $input = $request->collect();
+
+The `collect` method also allows you to retrieve a subset of the incoming request input as a collection:
+
+    $request->collect('users')->each(function ($user) {
+        // ...
+    });
+
 <a name="retrieving-an-input-value"></a>
 #### Retrieving An Input Value
 
@@ -321,6 +331,14 @@ The `whenHas` method will execute the given closure if a value is present on the
         //
     });
 
+A second closure may be passed to the `whenHas` method that will be executed if the specified value is not present on the request:
+
+    $request->whenHas('name', function ($input) {
+        // The "name" value is present...
+    }, function () {
+        // The "name" value is not present...
+    });
+
 The `hasAny` method returns `true` if any of the specified values are present:
 
     if ($request->hasAny(['name', 'email'])) {
@@ -337,6 +355,14 @@ The `whenFilled` method will execute the given closure if a value is present on 
 
     $request->whenFilled('name', function ($input) {
         //
+    });
+
+A second closure may be passed to the `whenFilled` method that will be executed if the specified value is not "filled":
+
+    $request->whenFilled('name', function ($input) {
+        // The "name" value is filled...
+    }, function () {
+        // The "name" value is not filled...
     });
 
 To determine if a given key is absent from the request, you may use the `missing` method:
@@ -477,7 +503,7 @@ To solve this, you may use the `App\Http\Middleware\TrustProxies` middleware tha
 
     namespace App\Http\Middleware;
 
-    use Fideloper\Proxy\TrustProxies as Middleware;
+    use Illuminate\Http\Middleware\TrustProxies as Middleware;
     use Illuminate\Http\Request;
 
     class TrustProxies extends Middleware

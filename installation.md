@@ -20,7 +20,7 @@
 
 Laravel is a web application framework with expressive, elegant syntax. A web framework provides a structure and starting point for creating your application, allowing you to focus on creating something amazing while we sweat the details.
 
-Laravel strives to provide an amazing developer experience, while providing powerful features such as thorough dependency injection, an expressive database abstraction layer, queues and scheduled jobs, unit and integration testing, and more.
+Laravel strives to provide an amazing developer experience while providing powerful features such as thorough dependency injection, an expressive database abstraction layer, queues and scheduled jobs, unit and integration testing, and more.
 
 Whether you are new to PHP or web frameworks or have years of experience, Laravel is a framework that can grow with you. We'll help you take your first steps as a web developer or give you a boost as you take your expertise to the next level. We can't wait to see what you build.
 
@@ -144,7 +144,7 @@ Once the application's Docker containers have been started, you can access the a
 <a name="choosing-your-sail-services"></a>
 ### Choosing Your Sail Services
 
-When creating a new Laravel application via Sail, you may use the `with` query string variable to choose which services should be configured in your new application's `docker-compose.yml` file. Available services include `mysql`, `pgsql`, `mariadb`, `redis`, `memcached`, `meilisearch`, `selenium`, and `mailhog`:
+When creating a new Laravel application via Sail, you may use the `with` query string variable to choose which services should be configured in your new application's `docker-compose.yml` file. Available services include `mysql`, `pgsql`, `mariadb`, `redis`, `memcached`, `meilisearch`, `minio`, `selenium`, and `mailhog`:
 
 ```nothing
 curl -s "https://laravel.build/example-app?with=mysql,redis" | bash
@@ -204,7 +204,7 @@ Instead of using the `--git` flag, you may also use the `--github` flag to creat
 laravel new example-app --github
 ```
 
-The created repository will then be available at `https://github.com/<your-account>/my-app.com`. The `github` flag assumes you have properly installed the [`gh` CLI tool](https://cli.github.com) and are authenticated with GitHub. Additionally, you should have `git` installed and properly configured. If needed, you can pass additional flags that supported by the GitHub CLI:
+The created repository will then be available at `https://github.com/<your-account>/example-app`. The `github` flag assumes you have properly installed the [GitHub CLI](https://cli.github.com) and are authenticated with GitHub. Additionally, you should have `git` installed and properly configured. If needed, you can pass additional flags that are supported by the GitHub CLI:
 
 ```bash
 laravel new example-app --github="--public"

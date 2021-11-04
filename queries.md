@@ -163,7 +163,7 @@ The `lazy` method works similarly to [the `chunk` method](#chunking-results) in 
 ```php
 use Illuminate\Support\Facades\DB;
 
-DB::table('users')->lazy()->each(function ($user) {
+DB::table('users')->orderBy('id')->lazy()->each(function ($user) {
     //
 });
 ```
@@ -430,6 +430,8 @@ You may also pass an array of conditions to the `where` function. Each element o
         ['status', '=', '1'],
         ['subscribed', '<>', '1'],
     ])->get();
+
+> {note} PDO does not support binding column names. Therefore, you should never allow user input to dictate the column names referenced by your queries, including "order by" columns.
 
 <a name="or-where-clauses"></a>
 ### Or Where Clauses
@@ -732,6 +734,14 @@ As you might expect, the `groupBy` and `having` methods may be used to group the
                     ->having('account_id', '>', 100)
                     ->get();
 
+You can use the `havingBetween` method to filter the results within a given range:
+
+    $report = DB::table('orders')
+                    ->selectRaw('count(id) as number_of_orders, customer_id')
+                    ->groupBy('customer_id')
+                    ->havingBetween('number_of_orders', [5, 15])
+                    ->get();
+
 You may pass multiple arguments to the `groupBy` method to group by multiple columns:
 
     $users = DB::table('users')
@@ -802,12 +812,14 @@ You may insert several records at once by passing an array of arrays. Each array
         ['email' => 'janeway@example.com', 'votes' => 0],
     ]);
 
-The `insertOrIgnore` method will ignore duplicate record errors while inserting records into the database:
+The `insertOrIgnore` method will ignore errors while inserting records into the database:
 
     DB::table('users')->insertOrIgnore([
         ['id' => 1, 'email' => 'sisko@example.com'],
         ['id' => 2, 'email' => 'archer@example.com'],
     ]);
+
+> {note} `insertOrIgnore` will ignore duplicate records and also may ignore other types of errors depending on the database engine. For example, `insertOrIgnore` will [bypass MySQL's strict mode](https://dev.mysql.com/doc/refman/en/sql-mode.html#ignore-effect-on-execution).
 
 <a name="auto-incrementing-ids"></a>
 #### Auto-Incrementing IDs

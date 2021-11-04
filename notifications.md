@@ -99,6 +99,10 @@ Alternatively, you may send notifications via the `Notification` [facade](/docs/
 
     Notification::send($users, new InvoicePaid($invoice));
 
+You can also send notifications immediately using the `sendNow` method. This method will send the notification immediately even if the notification implements the `ShouldQueue` interface:
+
+    Notification::sendNow($developers, new DeploymentCompleted($deployment));
+
 <a name="specifying-delivery-channels"></a>
 ### Specifying Delivery Channels
 
@@ -214,6 +218,25 @@ If your queue connection's `after_commit` configuration option is set to `false`
 
 > {tip} To learn more about working around these issues, please review the documentation regarding [queued jobs and database transactions](/docs/{{version}}/queues#jobs-and-database-transactions).
 
+<a name="determining-if-the-queued-notification-should-be-sent"></a>
+#### Determining If A Queued Notification Should Be Sent
+
+After a queued notification has been dispatched for the queue for background processing, it will typically be accepted by a queue worker and sent to its intended recipient.
+
+However, if you would like to make the final determination on whether the queued notification should be sent after it is being processed by a queue worker, you may define a `shouldSend` method on the notification class. If this method returns `false`, the notification will not be sent:
+
+    /**
+     * Determine if the notification should be sent.
+     *
+     * @param  mixed  $notifiable
+     * @param  string  $channel
+     * @return bool
+     */
+    public function shouldSend($notifiable, $channel)
+    {
+        return $this->invoice->isPaid();
+    }
+
 <a name="on-demand-notifications"></a>
 ### On-Demand Notifications
 
@@ -223,6 +246,12 @@ Sometimes you may need to send a notification to someone who is not stored as a 
                 ->route('nexmo', '5555555555')
                 ->route('slack', 'https://hooks.slack.com/services/...')
                 ->notify(new InvoicePaid($invoice));
+
+If you would like to provide the receipient's name when sending an on-demand notification to the `mail` route, you may provide an array that contains the email address as the key and the name as the value of the first element in the array:
+
+    Notification::route('mail', [
+        'barrett@example.com' => 'Barrett Blair',
+    ])->notify(new InvoicePaid($invoice));
 
 <a name="mail-notifications"></a>
 ## Mail Notifications
@@ -894,7 +923,7 @@ Laravel also supports sending shortcode notifications, which are pre-defined mes
             'type' => 'alert',
             'custom' => [
                 'code' => 'ABC123',
-            ];
+            ],
         ];
     }
 
@@ -1170,7 +1199,7 @@ When a notification is sent, the `Illuminate\Notifications\Events\NotificationSe
 
 > {tip} After registering listeners in your `EventServiceProvider`, use the `event:generate` Artisan command to quickly generate listener classes.
 
-Within an event listener, you may access the `notifiable`, `notification`, and `channel` properties on the event to learn more about the notification recipient or the notification itself:
+Within an event listener, you may access the `notifiable`, `notification`, `channel`, and `response` properties on the event to learn more about the notification recipient or the notification itself:
 
     /**
      * Handle the event.

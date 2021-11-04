@@ -9,6 +9,8 @@
     - [Disabling Views](#disabling-views)
 - [Authentication](#authentication)
     - [Customizing User Authentication](#customizing-user-authentication)
+    - [Customizing The Authentication Pipeline](#customizing-the-authentication-pipeline)
+    - [Customizing Redirects](#customizing-authentication-redirects)
 - [Two Factor Authentication](#two-factor-authentication)
     - [Enabling Two Factor Authentication](#enabling-two-factor-authentication)
     - [Authenticating With Two Factor Authentication](#authenticating-with-two-factor-authentication)
@@ -109,7 +111,7 @@ The `fortify` configuration file contains a `features` configuration array. This
 <a name="disabling-views"></a>
 ### Disabling Views
 
-By default, Fortify define routes that are intended to return views, such as a login screen or registration screen. However, if you are building a JavaScript driven single-page application, you may not need these routes. For that reason, you may disable these routes entirely by setting the `views` configuration value within your application's `config/fortify.php` configuration file to `false`:
+By default, Fortify defines routes that are intended to return views, such as a login screen or registration screen. However, if you are building a JavaScript driven single-page application, you may not need these routes. For that reason, you may disable these routes entirely by setting the `views` configuration value within your application's `config/fortify.php` configuration file to `false`:
 
 ```php
 'views' => false,
@@ -186,6 +188,59 @@ public function boot()
 #### Authentication Guard
 
 You may customize the authentication guard used by Fortify within your application's `fortify` configuration file. However, you should ensure that the configured guard is an implementation of `Illuminate\Contracts\Auth\StatefulGuard`. If you are attempting to use Laravel Fortify to authenticate an SPA, you should use Laravel's default `web` guard in combination with [Laravel Sanctum](https://laravel.com/docs/sanctum).
+
+<a name="customizing-the-authentication-pipeline"></a>
+### Customizing The Authentication Pipeline
+
+Laravel Fortify authenticates login requests through a pipeline of invokable classes. If you would like, you may define a custom pipeline of classes that login requests should be piped through. Each class should have an `__invoke` method which receives the incoming `Illuminate\Http\Request` instance and, like [middleware](/docs/{{version}}/middleware), a `$next` variable that is invoked in order to pass the request to the next class in the pipeline.
+
+To define your custom pipeline, you may use the `Fortify::authenticateThrough` method. This method accepts a closure which should return the array of classes to pipe the login request through. Typically, this method should be called from the `boot` method of your `App\Providers\FortifyServiceProvider` class.
+
+The example below contains the default pipeline definition that you may use as a starting point when making your own modifications:
+
+```php
+use Laravel\Fortify\Actions\AttemptToAuthenticate;
+use Laravel\Fortify\Actions\EnsureLoginIsNotThrottled;
+use Laravel\Fortify\Actions\PrepareAuthenticatedSession;
+use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
+use Laravel\Fortify\Fortify;
+use Illuminate\Http\Request;
+
+Fortify::authenticateThrough(function (Request $request) {
+    return array_filter([
+            config('fortify.limiters.login') ? null : EnsureLoginIsNotThrottled::class,
+            Features::enabled(Features::twoFactorAuthentication()) ? RedirectIfTwoFactorAuthenticatable::class : null,
+            AttemptToAuthenticate::class,
+            PrepareAuthenticatedSession::class,
+    ]);
+});
+```
+
+<a name="customizing-authentication-redirects"></a>
+### Customizing Redirects
+
+If the login attempt is successful, Fortify will redirect you to the URI configured via the `home` configuration option within your application's `fortify` configuration file. If the login request was an XHR request, a 200 HTTP response will be returned. After a user logs out of the application, the user will be redirected to the `/` URI.
+
+If you need advanced customization of this behavior, you may bind implementations of the `LoginResponse` and `LogoutResponse` contracts into the Laravel [service container](/docs/{{version}}/container). Typically, this should be done within the `register` method of your application's `App\Providers\FortifyServiceProvider` class:
+
+```php
+use Laravel\Fortify\Contracts\LogoutResponse;
+
+/**
+ * Register any application services.
+ *
+ * @return void
+ */
+public function register()
+{
+    $this->app->instance(LogoutResponse::class, new class implements LogoutResponse {
+        public function toResponse($request)
+        {
+            return redirect('/');
+        }
+    });
+}
+```
 
 <a name="two-factor-authentication"></a>
 ## Two Factor Authentication
@@ -301,7 +356,7 @@ use Laravel\Fortify\Fortify;
 public function boot()
 {
     Fortify::registerView(function () {
-        return view('auth.register'); 
+        return view('auth.register');
     });
 
     // ...
@@ -389,7 +444,7 @@ If the request was not successful, the user will be redirected back to the reque
 
 To finish implementing our application's password reset functionality, we need to instruct Fortify how to return our "reset password" view.
 
-All of Fortify's view's rendering logic may be customized using the appropriate methods available via the `Laravel\Fortify\Fortify` class. Typically, you should call this method from the `boot` method of your application's `App\Providers\FortifyServiceProvider` class:
+All of Fortify's view rendering logic may be customized using the appropriate methods available via the `Laravel\Fortify\Fortify` class. Typically, you should call this method from the `boot` method of your application's `App\Providers\FortifyServiceProvider` class:
 
 ```php
 use Laravel\Fortify\Fortify;

@@ -19,7 +19,6 @@
     - [PHP Versions](#php-versions)
     - [Connecting To Databases](#connecting-to-databases)
     - [Database Backups](#database-backups)
-    - [Database Snapshots](#database-snapshots)
     - [Configuring Cron Schedules](#configuring-cron-schedules)
     - [Configuring MailHog](#configuring-mailhog)
     - [Configuring Minio](#configuring-minio)
@@ -67,10 +66,10 @@ Homestead runs on any Windows, macOS, or Linux system and includes Nginx, PHP, M
 - PHP 7.0
 - PHP 5.6
 - Nginx
-- MySQL
+- MySQL 8.0
 - lmm
 - Sqlite3
-- PostgreSQL (9.6, 10, 11, 12, 13)
+- PostgreSQL 13
 - Composer
 - Node (With Yarn, Bower, Grunt, and Gulp)
 - Redis
@@ -104,6 +103,7 @@ Homestead runs on any Windows, macOS, or Linux system and includes Nginx, PHP, M
 - Crystal & Lucky Framework
 - Docker
 - Elasticsearch
+- EventStoreDB
 - Gearman
 - Go
 - Grafana
@@ -117,8 +117,12 @@ Homestead runs on any Windows, macOS, or Linux system and includes Nginx, PHP, M
 - Open Resty
 - PM2
 - Python
+- R
 - RabbitMQ
+- RVM (Ruby Version Manager)
 - Solr
+- TimescaleDB
+- Trader <small>(PHP extension)</small>
 - Webdriver & Laravel Dusk Utilities
 </div>
 
@@ -169,6 +173,8 @@ Next, execute the `bash init.sh` command from the Homestead directory to create 
 The `provider` key in your `Homestead.yaml` file indicates which Vagrant provider should be used: `virtualbox` or `parallels`:
 
     provider: virtualbox
+
+> {note} If you are using Apple Silicon, you should add `box: laravel/homestead-arm` to your `Homstead.yaml` file. Apple Silicon requires the Parallels provider.
 
 <a name="configuring-shared-folders"></a>
 #### Configuring Shared Folders
@@ -250,7 +256,7 @@ Homestead starts several services by default; however, you may customize which s
 ```yaml
 services:
     - enabled:
-        - "postgresql@12-main"
+        - "postgresql"
     - disabled:
         - "mysql"
 ```
@@ -303,6 +309,8 @@ Optional software is installed using the `features` option within your `Homestea
         - docker: true
         - elasticsearch:
             version: 7.9.0
+        - eventstore: true
+            version: 21.2.0
         - gearman: true
         - golang: true
         - grafana: true
@@ -316,8 +324,12 @@ Optional software is installed using the `features` option within your `Homestea
         - openresty: true
         - pm2: true
         - python: true
+        - r-base: true
         - rabbitmq: true
+        - rvm: true
         - solr: true
+        - timescaledb: true
+        - trader: true
         - webdriver: true
 
 <a name="elasticsearch"></a>
@@ -528,21 +540,6 @@ Homestead can automatically backup your database when your Homestead virtual mac
     backup: true
 
 Once configured, Homestead will export your databases to `mysql_backup` and `postgres_backup` directories when the `vagrant destroy` command is executed. These directories can be found in the folder where you installed Homestead or in the root of your project if you are using the [per project installation](#per-project-installation) method.
-
-<a name="database-snapshots"></a>
-### Database Snapshots
-
-Homestead supports freezing the state of MySQL and MariaDB databases and branching between them using [Logical MySQL Manager](https://github.com/Lullabot/lmm). For example, imagine working on a site with a multi-gigabyte database. You can import the database and take a snapshot. After doing some work and creating some test content locally, you may quickly restore back to the original state.
-
-Under the hood, LMM uses LVM's thin snapshot functionality with copy-on-write support. In practice, this means that changing a single row in a table will only cause the changes you made to be written to disk, saving significant time and disk space during restores.
-
-Since LMM interacts with LVM, it must be run as `root`. To see all available commands, run the `sudo lmm` command within Vagrant box. A common workflow looks like the following:
-
-- Import a database into the default `master` lmm branch.
-- Save a snapshot of the unchanged database using `sudo lmm branch prod-YYYY-MM-DD`.
-- Modify the database.
-- Run `sudo lmm merge prod-YYYY-MM-DD` to undo all changes.
-- Run `sudo lmm delete <branch>` to delete unneeded branches.
 
 <a name="configuring-cron-schedules"></a>
 ### Configuring Cron Schedules

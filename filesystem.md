@@ -5,8 +5,10 @@
     - [The Local Driver](#the-local-driver)
     - [The Public Disk](#the-public-disk)
     - [Driver Prerequisites](#driver-prerequisites)
+    - [Amazon S3 Compatible Filesystems](#amazon-s3-compatible-filesystems)
     - [Caching](#caching)
 - [Obtaining Disk Instances](#obtaining-disk-instances)
+    - [On-Demand Disks](#on-demand-disks)
 - [Retrieving Files](#retrieving-files)
     - [Downloading Files](#downloading-files)
     - [File URLs](#file-urls)
@@ -71,7 +73,7 @@ You may configure additional symbolic links in your `filesystems` configuration 
 
 Before using the S3 or SFTP drivers, you will need to install the appropriate package via the Composer package manager:
 
-- Amazon S3: `composer require league/flysystem-aws-s3-v3 "~1.0"`
+- Amazon S3: `composer require --with-all-dependencies league/flysystem-aws-s3-v3 "^1.0"`
 - SFTP: `composer require league/flysystem-sftp "~1.0"`
 
 In addition, you may choose to install a cached adapter for increased performance:
@@ -123,6 +125,15 @@ Laravel's Flysystem integrations work great with SFTP; however, a sample configu
         // 'timeout' => 30,
     ],
 
+<a name="amazon-s3-compatible-filesystems"></a>
+### Amazon S3 Compatible Filesystems
+
+By default, your application's `filesystems` configuration file contains a disk configuration for the `s3` disk. In addition to using this disk to interact with Amazon S3, you may use it to interact with any S3 compatible file storage service such as [MinIO](https://github.com/minio/minio) or [DigitalOcean Spaces](https://www.digitalocean.com/products/spaces/).
+
+Typically, after updating the disk's credentials to match the credentials of the service you are planning to use, you only need to update the value of the `url` configuration option. This option's value is typically defined via the `AWS_ENDPOINT` environment variable:
+
+    'endpoint' => env('AWS_ENDPOINT', 'https://minio:9000'),
+
 <a name="caching"></a>
 ### Caching
 
@@ -152,6 +163,22 @@ The `Storage` facade may be used to interact with any of your configured disks. 
 If your application interacts with multiple disks, you may use the `disk` method on the `Storage` facade to work with files on a particular disk:
 
     Storage::disk('s3')->put('avatars/1', $content);
+
+<a name="on-demand-disks"></a>
+### On-Demand Disks
+
+Sometimes you may wish to create a disk at runtime using a given configuration without that configuration actually being present in your application's `filesystems` configuration file. To accomplish this, you may pass a configuration array to the `Storage` facade's `build` method:
+
+```php
+use Illuminate\Support\Facades\Storage;
+
+$disk = Storage::build([
+    'driver' => 'local',
+    'root' => '/path/to/root',
+]);
+
+$disk->put('image.jpg', $content);
+```
 
 <a name="retrieving-files"></a>
 ## Retrieving Files
